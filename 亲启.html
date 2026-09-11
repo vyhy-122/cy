@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>亲启 · 致阿枕</title>
+    <style>
+        /* 温柔米色基底 + 飘落星星 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #f5efe6;  /* 暖米色背景 */
+            font-family: 'Segoe UI', 'Helvetica Neue', 'Apple Color Emoji', 'Noto Serif SC', serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* 星星画布 — 飘落星星 */
+        #starfield {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;   /* 让点击穿透 */
+            z-index: 5;
+        }
+
+        /* 主卡片——未点开时展示的信封/亲启封面 */
+        .letter-cover {
+            background: #fcf9f4;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px -12px rgba(140, 110, 80, 0.25), 0 4px 18px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 720px;
+            padding: 48px 36px;
+            text-align: center;
+            transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+            border: 1px solid rgba(210, 180, 140, 0.3);
+            position: relative;
+            z-index: 10;
+            cursor: pointer;
+            backdrop-filter: blur(2px);
+        }
+
+        .letter-cover:hover {
+            box-shadow: 0 28px 48px -16px rgba(150, 120, 90, 0.4), 0 8px 24px rgba(0, 0, 0, 0.08);
+            transform: scale(1.01);
+        }
+
+        .cover-title {
+            font-size: 2.4rem;
+            letter-spacing: 8px;
+            color: #9b7b5c;
+            font-weight: 400;
+            text-shadow: 1px 1px 0 rgba(255, 245, 235, 0.8);
+            margin-bottom: 16px;
+            font-family: 'Times New Roman', 'Songti SC', serif;
+        }
+
+        .cover-sub {
+            color: #b8a086;
+            font-size: 1rem;
+            letter-spacing: 4px;
+            margin-bottom: 32px;
+            font-style: italic;
+        }
+
+        .cover-hint {
+            color: #c9b29b;
+            font-size: 0.95rem;
+            letter-spacing: 2px;
+            border-top: 1px dashed #dacbb8;
+            padding-top: 28px;
+            margin-top: 16px;
+            transition: color 0.3s;
+        }
+
+        .letter-cover:hover .cover-hint {
+            color: #b39278;
+        }
+
+        /* 信纸主内容——起初隐藏，展开后显示 */
+        .letter-content {
+            display: none;          /* 由js控制显示 */
+            background: #fcf8f1;
+            background-image: radial-gradient(circle at 20% 30%, rgba(250, 240, 225, 0.6) 0%, transparent 30%),
+                              radial-gradient(circle at 90% 70%, rgba(240, 225, 205, 0.5) 0%, transparent 40%);
+            border-radius: 16px;
+            box-shadow: 0 24px 48px -16px rgba(130, 100, 70, 0.3), 0 4px 16px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 780px;
+            padding: 48px 40px;
+            border: 1px solid #e8dac8;
+            position: relative;
+            z-index: 10;
+            backdrop-filter: blur(2px);
+            transition: opacity 0.6s ease;
+        }
+
+        /* 信纸内部装饰线 */
+        .letter-content::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            bottom: 20px;
+            border: 1px solid rgba(210, 180, 140, 0.25);
+            border-radius: 10px;
+            pointer-events: none;
+        }
+
+        /* 所有文字段落的容器 */
+        .text-container {
+            position: relative;
+            z-index: 2;
+        }
+
+        /* 每一段文字的样式 */
+        .message-line {
+            opacity: 0;
+            transform: translateY(12px);
+            transition: opacity 1s ease, transform 1s ease;
+            color: #5e4f3e;
+            font-size: 1.05rem;
+            line-height: 1.9;
+            margin-bottom: 1.4rem;
+            letter-spacing: 0.3px;
+            word-break: break-word;
+            font-family: 'Georgia', 'Songti SC', 'Noto Serif SC', serif;
+            text-shadow: 0 1px 0 rgba(255, 250, 240, 0.8);
+        }
+
+        /* 让段落浮现时可见 */
+        .message-line.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* 称呼特殊样式 */
+        .message-line.salutation {
+            font-size: 1.4rem;
+            font-weight: 400;
+            color: #9b7b5c;
+            letter-spacing: 6px;
+            margin-bottom: 2rem;
+            font-family: 'Times New Roman', 'Songti SC', serif;
+        }
+
+        /* 祝福语强调 */
+        .message-line.blessing {
+            color: #a4815f;
+            font-style: italic;
+            letter-spacing: 0.8px;
+        }
+
+        /* 落款 */
+        .message-line.signature {
+            margin-top: 2.2rem;
+            text-align: right;
+            font-size: 1.2rem;
+            color: #a4815f;
+            letter-spacing: 2px;
+            font-family: 'Times New Roman', 'Songti SC', serif;
+        }
+
+        /* 返回/重读按钮 - 小彩蛋 */
+        .reset-btn {
+            display: inline-block;
+            margin-top: 40px;
+            color: #b8a086;
+            font-size: 0.85rem;
+            letter-spacing: 2px;
+            border-bottom: 1px solid #dacbb8;
+            padding-bottom: 4px;
+            cursor: pointer;
+            transition: color 0.3s, border-color 0.3s;
+            background: none;
+            border: none;
+            font-family: inherit;
+            z-index: 15;
+            position: relative;
+            opacity: 0.7;
+        }
+
+        .reset-btn:hover {
+            color: #9b7b5c;
+            border-color: #b8a086;
+        }
+
+        /* 移动端 */
+        @media (max-width: 600px) {
+            .letter-cover {
+                padding: 36px 20px;
+            }
+            .cover-title {
+                font-size: 1.9rem;
+                letter-spacing: 5px;
+            }
+            .letter-content {
+                padding: 32px 20px;
+            }
+            .message-line {
+                font-size: 0.98rem;
+                line-height: 1.85;
+                margin-bottom: 1.2rem;
+            }
+            .message-line.salutation {
+                font-size: 1.2rem;
+            }
+        }
+
+        /* 控制淡入延迟的辅助 - 无需额外类 */
+    </style>
+</head>
+<body>
+    <!-- 飘落星星 canvas -->
+    <canvas id="starfield"></canvas>
+
+    <!-- 信封封面 (初始可见) -->
+    <div class="letter-cover" id="letterCover">
+        <div class="cover-title">亲启</div>
+        <div class="cover-sub">—— 致阿枕</div>
+        <div class="cover-hint">点击亲启 · 展信舒颜</div>
+    </div>
+
+    <!-- 展开后的信纸内容 (初始隐藏) -->
+    <div class="letter-content" id="letterContent">
+        <div class="text-container" id="textContainer">
+            <!-- 文字段落会动态插入, 或预先写好由JS控制显示。为了可维护性，这里预写所有段落，并用js逐段显示 -->
+            <!-- 但为了js能精确控制，我们也可以采用数据驱动。这里采用预写html + js控制显示顺序 -->
+            <!-- 注意：文本内容较多，逐段添加class visible -->
+            <p class="message-line salutation">亲启。</p>
+            <p class="message-line">认识时间不长，所以并不知到底是你还是端午的生日，语序穿插叙事着可能会有问题，语言也贫瘠，见谅。</p>
+            <p class="message-line">我记性太差了都忘了你是为了什么加我的，不过说实话你还是为数不多加我的，感动。</p>
+            <p class="message-line">当时对你的印象还停留在审核群里的那张卡，习惯性点进去看到端午。很漂亮的孩子，也是很幸福的孩子。</p>
+            <p class="message-line">后来才觉察出什么样的人才会有什么样的孩子。因为你也是很好的人所以小孩也是一样的。</p>
+            <p class="message-line">刚加我的时候你好激动啊我第一次见这么热情的人，我自认为我画的好难看你还喊我女神。我不擅长回应人的热情即便我很高兴，所以说了一大堆弱智话（）</p>
+            <p class="message-line">你总在听我说话，保持一种热情的去听我说话，不管是讲oc也好还是说别的。人对人，尤其是对初见的人竟然会有那么大的热情。坦率啊，热忱啊，真诚啊，很美好的品质啊，似乎都能堆叠在你的身上。</p>
+            <p class="message-line">我不敢保证我多了解你，所以我只是浅显的这样说着，但是说的都是真心话。</p>
+            <p class="message-line">总在找你说话也不知道你会不会烦，烦的话我少说点，有问题也说，希望你一直都很高兴嘛。</p>
+            <p class="message-line">我当时翻到了你动态，你有耳道炎是吗？平时注意不要沾水，干痒时可用棉签蘸少量凡士林轻涂耳道口，别伸进去。痒得厉害可以冷敷耳周。记得规律作息、均衡饮食，补充维生素A、C、E有助皮肤修复。</p>
+            <p class="message-line">画师通病腱鞘炎肩周炎颈椎病腰间盘……呃，不知道你有没有找到好用一点的方法，我推荐买个腰护和颈托，另外就是贴膏药。膏药的话，我贴的有个牌子好用，我回去给你翻翻。</p>
+            <p class="message-line">很乐观的一个人，不知道为什么一直在喊你枕，阿枕这个名字很萌。我想你应该一直乐观下去——说的是，不要被命运折磨，一直很快乐的那种。</p>
+            <p class="message-line">端午也很萌，并不知道你创造出他有多久，但是我觉得他很像你，所谓儿子像妈妈大概是这么个道理吧。</p>
+            <p class="message-line">很想和你一直聊天，也希望我和你聊天的时候没有消耗你，而是让你高兴一点。</p>
+            <p class="message-line">不知道你会不会喜欢约稿，总觉得稿件给你的时候你语气不太对，在这里说一句抱歉。并没有不想画的意思，个人感觉画的太难看，人类看到不漂亮的东西心情也不会太好，所以还是看点好看的吧。</p>
+            <p class="message-line">认识的时间太短了想给你买点礼物好像时间不够又好像居心叵测一样，所以只能搞个这种小东西哄你，希望你喜欢。</p>
+            <p class="message-line blessing">祝我们阿枕岁岁年年，万喜万般宜。且以喜乐，共赴新岁。眼中有星辰，身边有微风，心中有暖阳。</p>
+            <p class="message-line blessing">一岁有一岁的味道，一站有一站的风景。愿你遍历山河，觉得人间值得。愿你往后路途，深情不再枉付，此生尽兴，赤诚善良。生日快乐。祝历遍山河，仍觉人间值得；千帆过尽，归来仍是少年。</p>
+            <p class="message-line blessing">生日快乐嘛，阿枕，裴端午。</p>
+            <p class="message-line signature">—— 念你之人</p>
+        </div>
+        <div style="text-align: center;">
+            <button class="reset-btn" id="resetBtn">重读此信</button>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // ---------- 飘落星星动画 ----------
+            const canvas = document.getElementById('starfield');
+            const ctx = canvas.getContext('2d');
+            let width, height;
+            let stars = [];
+
+            function initStars(count = 120) {
+                stars = [];
+                for (let i = 0; i < count; i++) {
+                    stars.push({
+                        x: Math.random() * width,
+                        y: Math.random() * height,
+                        size: Math.random() * 2.2 + 0.6,     // 星星大小
+                        speedY: Math.random() * 0.55 + 0.2,   // 下落速度
+                        speedX: (Math.random() - 0.5) * 0.25, // 轻微水平飘动
+                        opacity: Math.random() * 0.5 + 0.3,
+                        phase: Math.random() * Math.PI * 2,
+                    });
+                }
+            }
+
+            function resizeCanvas() {
+                width = window.innerWidth;
+                height = window.innerHeight;
+                canvas.width = width;
+                canvas.height = height;
+                initStars(130); // 星星数量
+            }
+
+            function drawStars() {
+                ctx.clearRect(0, 0, width, height);
+                // 柔和星星风格 —— 金色/米白
+                for (let s of stars) {
+                    // 小十字光芒或圆点
+                    const rad = s.size * 0.9;
+                    const opacity = s.opacity * (0.7 + 0.3 * Math.sin(Date.now() * 0.002 + s.phase)); // 微微闪烁
+                    ctx.beginPath();
+                    // 画星星: 四角星 + 光晕
+                    ctx.shadowColor = 'rgba(255, 235, 190, 0.6)';
+                    ctx.shadowBlur = 6;
+                    ctx.fillStyle = `rgba(255, 240, 200, ${opacity})`;
+                    // 圆形星点
+                    ctx.arc(s.x, s.y, rad, 0, Math.PI * 2);
+                    ctx.fill();
+                    // 再加一点小光芒 (十字)
+                    ctx.shadowBlur = 4;
+                    ctx.beginPath();
+                    ctx.moveTo(s.x - rad * 1.8, s.y);
+                    ctx.lineTo(s.x + rad * 1.8, s.y);
+                    ctx.moveTo(s.x, s.y - rad * 1.8);
+                    ctx.lineTo(s.x, s.y + rad * 1.8);
+                    ctx.strokeStyle = `rgba(255, 235, 190, ${opacity * 0.5})`;
+                    ctx.lineWidth = 0.7;
+                    ctx.stroke();
+                }
+                // 重置阴影
+                ctx.shadowBlur = 0;
+                ctx.shadowColor = 'transparent';
+            }
+
+            function updateStars() {
+                for (let s of stars) {
+                    s.y += s.speedY;
+                    s.x += s.speedX + Math.sin(Date.now() * 0.001 + s.phase) * 0.08; // 微摆动
+                    // 重置到顶部
+                    if (s.y > height + 10) {
+                        s.y = -10;
+                        s.x = Math.random() * width;
+                    }
+                    if (s.x > width + 10) s.x = -10;
+                    if (s.x < -10) s.x = width + 10;
+                }
+            }
+
+            function animate() {
+                updateStars();
+                drawStars();
+                requestAnimationFrame(animate);
+            }
+
+            // 初始化canvas
+            window.addEventListener('resize', () => {
+                resizeCanvas();
+            });
+            resizeCanvas();
+            animate();
+
+            // ---------- 信件交互 ----------
+            const cover = document.getElementById('letterCover');
+            const letterContent = document.getElementById('letterContent');
+            const textContainer = document.getElementById('textContainer');
+            const resetBtn = document.getElementById('resetBtn');
+
+            // 获取所有文字段落
+            const messageLines = Array.from(textContainer.querySelectorAll('.message-line'));
+
+            // 保存每个段落的原始内容(防止被修改), 但实际上不用改
+            // 逐段显示定时器
+            let visibleTimeouts = [];
+
+            // 清空所有显示定时器
+            function clearAllTimeouts() {
+                visibleTimeouts.forEach(t => clearTimeout(t));
+                visibleTimeouts = [];
+            }
+
+            // 重置所有段落为不可见
+            function resetMessages() {
+                clearAllTimeouts();
+                messageLines.forEach(line => {
+                    line.classList.remove('visible');
+                });
+            }
+
+            // 逐段显示 (每段延迟递增)
+            function revealMessages() {
+                resetMessages();  // 先重置再显示
+
+                // 依次显示, 第一段立即开始 (延迟300ms让信纸展开过渡)
+                messageLines.forEach((line, index) => {
+                    const delay = 300 + index * 380; // 每段间隔约380ms，平稳浮现
+                    const timeout = setTimeout(() => {
+                        line.classList.add('visible');
+                    }, delay);
+                    visibleTimeouts.push(timeout);
+                });
+            }
+
+            // 展开信件: 隐藏封面, 显示内容, 触发文字浮现
+            function openLetter() {
+                if (letterContent.style.display === 'block') return; // 已经打开
+
+                // 封面淡出 (直接隐藏并用过渡模拟)
+                cover.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+                cover.style.opacity = '0';
+                cover.style.transform = 'scale(0.98)';
+
+                // 短暂延迟后完全隐藏封面并显示内容
+                setTimeout(() => {
+                    cover.style.display = 'none';
+                    letterContent.style.display = 'block';
+                    // 让信纸淡入 (初始透明 -> 不透明)
+                    letterContent.style.opacity = '0';
+                    // 强制重绘
+                    void letterContent.offsetWidth;
+                    letterContent.style.transition = 'opacity 0.6s ease';
+                    letterContent.style.opacity = '1';
+
+                    // 开始逐段显示文字，延迟稍短，等待信纸可见
+                    setTimeout(() => {
+                        revealMessages();
+                    }, 150);
+
+                }, 400);
+            }
+
+            // 重置整个页面到初始状态 (重新开始)
+            function resetLetter() {
+                // 先清除所有文字可见状态
+                resetMessages();
+
+                // 隐藏信纸内容，显示封面
+                letterContent.style.display = 'none';
+                cover.style.display = 'block';
+                // 恢复封面样式
+                cover.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+                cover.style.opacity = '1';
+                cover.style.transform = 'scale(1)';
+
+                // 清除可能残留的timeout
+                clearAllTimeouts();
+            }
+
+            // 点击封面展开信件
+            cover.addEventListener('click', openLetter);
+
+            // 重置按钮
+            resetBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                resetLetter();
+            });
+
+            // 避免重置按钮触发任何冒泡
+            resetBtn.addEventListener('mousedown', (e) => e.stopPropagation());
+
+            // 可选: 页面加载完成后如果有需要预加载, 无特殊操作
+            // 如果用户直接点击重置并且cover显示, 点击cover再次展开.
+            // 处理下如果用户点击重置后，cover可以再次点击
+            // 注意cover的点击事件一直有效
+
+            // 但有一个问题：重置后，cover的display变成block，但之前透明度可能被修改；重置函数恢复。
+            // 另外重置后，如果再次点击cover，要保证 openLetter 能执行: 检查letterContent display 是否为 block
+            // 重置后letterContent display = none, cover display = block, 所以可以再次打开。
+
+            // 完善：当cover淡出过程中连续点击会触发两次，加一个简单锁
+            let isAnimating = false;
+            const originalOpen = openLetter;
+            cover.addEventListener('click', function(e) {
+                if (isAnimating) return;
+                if (letterContent.style.display === 'block') return;
+                isAnimating = true;
+                openLetter();
+                setTimeout(() => { isAnimating = false; }, 800);
+            });
+
+            // 修正打开函数使用原有
+            // 调整openLetter里面重置锁什么的。不用修改。
+
+            // 在重置时恢复锁
+            const originalReset = resetLetter;
+            resetBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                isAnimating = true;
+                resetLetter();
+                setTimeout(() => { isAnimating = false; }, 500);
+            });
+
+            // 确保重置后，再次点击封面可行。并且覆盖重置后cover的opacity和transform
+            // 已经做了
+
+            // 初始化时，防止信纸内容闪现, 确保display none
+            letterContent.style.display = 'none';
+            cover.style.display = 'block';
+            cover.style.opacity = '1';
+            cover.style.transform = 'scale(1)';
+
+            // 如果用户刷新时想重新开始，OK
+        })();
+    </script>
+</body>
+</html>
